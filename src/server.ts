@@ -1,14 +1,27 @@
 // src/server.ts
 
+/***
+ * Mongo DB
+ * username : sanjangigsoft_db_user
+ * password : RO6gsS97fTIPJ0fy
+ * mongodb+srv://<db_username>:RO6gsS97fTIPJ0fy@cluster0.0telrwn.mongodb.net/?appName=Cluster0
+ * 
+ */
+
+
+
 import express, { Application, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+import { connectDB } from './config/db';
 // Import Routes & Middlewares
 import productRoutes from './routes/product.routes';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 
 dotenv.config();
+
+connectDB();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
