@@ -93,30 +93,9 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 // @route   POST /api/products
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.body || Object.keys(req.body).length === 0) {
-      res.status(400).json({ success: false, error: "Request body is empty" });
-      return;
-    }
-
+    // 💡 NO MANUAL IF/ELSE CHECKS NEEDED! Zod has already validated req.body!
     const { name, price, category, image, description } = req.body;
 
-    // Basic validation (Schema bhi validate karega, ye extra safety hai)
-    const errors: string[] = [];
-    if (!name || typeof name !== 'string' || name.trim().length < 2) {
-      errors.push("Name is required and must be at least 2 characters");
-    }
-    if (price === undefined || typeof price !== 'number' || price < 0) {
-      errors.push("Price is required and must be a non-negative number");
-    }
-    if (!category || typeof category !== 'string' || category.trim().length < 2) {
-      errors.push("Category is required and must be at least 2 characters");
-    }
-    if (errors.length > 0) {
-      res.status(400).json({ success: false, error: "Validation failed", details: errors });
-      return;
-    }
-
-    // 🔥 Database mein save karo — ID automatic banegi!
     const product = await ProductModel.create({
       name: name.trim(),
       price,
@@ -131,12 +110,6 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       data: product
     });
   } catch (error: any) {
-    // Mongoose validation error handle
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e: any) => e.message);
-      res.status(400).json({ success: false, error: "Validation failed", details: messages });
-      return;
-    }
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -145,26 +118,10 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 // @route   PUT /api/products/:id
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.body || Object.keys(req.body).length === 0) {
-      res.status(400).json({ success: false, error: "Request body cannot be empty for update" });
-      return;
-    }
-
-    const { name, price, category, image, description } = req.body;
-
-    // Sirf wahi fields update hongi jo body mein aayi hain
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (price !== undefined) updateData.price = price;
-    if (category !== undefined) updateData.category = category.toLowerCase().trim();
-    if (image !== undefined) updateData.image = image;
-    if (description !== undefined) updateData.description = description;
-
-    // { new: true } = updated document return karo (warna purana return hota hai)
-    // { runValidators: true } = Schema validation update pe bhi chale
+    // 💡 NO MANUAL IF/ELSE CHECKS NEEDED!
     const product = await ProductModel.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      req.body,
       { new: true, runValidators: true }
     );
 
@@ -179,11 +136,6 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       data: product
     });
   } catch (error: any) {
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((e: any) => e.message);
-      res.status(400).json({ success: false, error: "Validation failed", details: messages });
-      return;
-    }
     if (error.name === 'CastError') {
       res.status(400).json({ success: false, error: "Invalid product ID format" });
       return;

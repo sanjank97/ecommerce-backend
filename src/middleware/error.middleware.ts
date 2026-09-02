@@ -1,5 +1,3 @@
-// src/middleware/error.middleware.ts
-
 import { Request, Response, NextFunction } from 'express';
 
 // 404 Route Not Found Handler
@@ -17,7 +15,7 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  console.error("💥 Global Error Caught:", err.message);
+  console.error(" Global Error Caught:", err.message);
 
   // JSON syntax error handling (e.g. malformed body)
   if (err instanceof SyntaxError && 'body' in err) {

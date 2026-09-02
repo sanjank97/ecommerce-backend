@@ -1,8 +1,7 @@
-// src/middleware/validate.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { ZodSchema, ZodError } from 'zod';
 
-export const validate = (schema: AnyZodObject) => {
+export const validate = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Validate req.body, req.query, and req.params against Zod schema
@@ -12,13 +11,13 @@ export const validate = (schema: AnyZodObject) => {
         params: req.params
       });
 
-      // Agar validation pass ho jaye, next middleware/controller pe jao
+      // Pass control to next middleware/controller
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        // Zod error messages ko ek clean array mein format karo
-        const formattedErrors = error.errors.map(err => ({
-          field: err.path.join('.').replace('body.', ''), // e.g. "price" instead of "body.price"
+        // Format Zod errors nicely
+        const formattedErrors = error.issues.map(err => ({
+          field: err.path.join('.').replace('body.', ''),
           message: err.message
         }));
 

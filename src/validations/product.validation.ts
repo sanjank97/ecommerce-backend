@@ -1,21 +1,22 @@
-// src/validations/product.validation.ts
 import { z } from 'zod';
 
-// 1️⃣ Schema for POST /api/products (Create)
+//  Schema for POST /api/products (Create)
 export const createProductSchema = z.object({
   body: z.object({
     name: z
-      .string({ required_error: "Name is required" })
+      .string({ message: "Name must be a string" })
       .trim()
+      .min(1, "Name is required")
       .min(2, "Name must be at least 2 characters long"),
 
     price: z
-      .number({ required_error: "Price is required" })
+      .number({ message: "Price is required and must be a number" })
       .positive("Price must be a positive number"),
 
     category: z
-      .string({ required_error: "Category is required" })
+      .string({ message: "Category must be a string" })
       .trim()
+      .min(1, "Category is required")
       .min(2, "Category must be at least 2 characters long"),
 
     image: z.string().optional(),
@@ -24,7 +25,7 @@ export const createProductSchema = z.object({
   })
 });
 
-// 2️⃣ Schema for PUT /api/products/:id (Update - Saari fields optional!)
+// Schema for PUT /api/products/:id (Update)
 export const updateProductSchema = z.object({
   body: z.object({
     name: z.string().trim().min(2, "Name must be at least 2 characters").optional(),
@@ -33,8 +34,12 @@ export const updateProductSchema = z.object({
     image: z.string().optional(),
     description: z.string().optional()
   })
+      // REJECT EMPTY BODY CHECK
+    .refine((data) => Object.keys(data).length > 0, {
+      message: "Request body cannot be empty. Please provide at least one field to update."
+    })
+    
 });
 
-// TypeScript type inference (Extra superpower of Zod!)
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;

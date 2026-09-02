@@ -1,3 +1,5 @@
+// src/routes/product.routes.ts
+
 import { Router } from 'express';
 import {
   getAllProducts,
@@ -7,20 +9,24 @@ import {
   deleteProduct
 } from '../controllers/product.controller';
 
+// 1. Import Validate Middleware & Schemas
+import { validate } from '../middleware/validate.middleware';
+import { createProductSchema, updateProductSchema } from '../validations/product.validation';
+import { protect } from '../middleware/auth.middleware';
+
 const router = Router();
 
 // ============================================
-//  PRODUCT ROUTES
+//  PRODUCT ROUTES WITH ZOD VALIDATION
 // ============================================
 
-// Tarika 1: Chained Route (Clean & Industry Standard )
 router.route('/')
-  .get(getAllProducts)      // GET /api/products
-  .post(createProduct);     // POST /api/products
+  .get(getAllProducts)
+  .post(protect,validate(createProductSchema), createProduct); 
 
 router.route('/:id')
-  .get(getProductById)      // GET /api/products/:id
-  .put(updateProduct)       // PUT /api/products/:id
-  .delete(deleteProduct);   // DELETE /api/products/:id
+  .get(getProductById)
+  .put(protect,validate(updateProductSchema), updateProduct)  
+  .delete(protect, deleteProduct);
 
 export default router;

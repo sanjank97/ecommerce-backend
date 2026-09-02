@@ -17,6 +17,7 @@ import cors from 'cors';
 import { connectDB } from './config/db';
 // Import Routes & Middlewares
 import productRoutes from './routes/product.routes';
+import authRoutes from './routes/auth.routes';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 
 dotenv.config();
@@ -44,6 +45,7 @@ app.get('/', (req: Request, res: Response) => {
 // ============================================
 // Saare product routes ko '/api/products' prefix ke sath mount kar diya
 app.use('/api/products', productRoutes);
+app.use('/api/auth', authRoutes);  
 
 // ============================================
 // 4. ERROR MIDDLEWARES (Always at the end)
