@@ -13,12 +13,15 @@
 import express, { Application, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 
 import { connectDB } from './config/db';
 // Import Routes & Middlewares
 import productRoutes from './routes/product.routes';
 import authRoutes from './routes/auth.routes';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
+import { apiLimiter } from './middleware/rateLimiter.middleware';
+import { sanitizeData } from './middleware/sanitize.middleware';
 
 dotenv.config();
 
@@ -26,6 +29,29 @@ connectDB();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
+
+
+// ============================================
+//  SECURITY MIDDLEWARES
+// ============================================
+
+// 1. Set Security HTTP Headers
+app.use(helmet());
+
+// 2. CORS (Restricting cross-origin requests)
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173', // React Frontend URL (Vite default 5173)
+  credentials: true
+}));
+
+// 3. Body Parser with Size Limit (Prevents payload flood attacks)
+app.use(express.json({ limit: '10kb' }));
+
+app.use(sanitizeData); //  Express 5 safe NoSQL sanitize
+
+// 5. Global Rate Limiting
+app.use('/api', apiLimiter);
+
 
 // ============================================
 // 1. GLOBAL MIDDLEWARES
