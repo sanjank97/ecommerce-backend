@@ -12,14 +12,14 @@ interface JwtPayload {
 // ============================================
 // PROTECT — Only logged-in users
 // ============================================
-export const protect = async (
+export const 
+protect = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     let token: string | undefined;
-
     //  Authorization header se token nikaalo
     // Format: "Bearer eyJhbGciOiJIUzI1NiIs..."
     if (
@@ -61,10 +61,42 @@ export const protect = async (
 
     next(); // Authorized — controller pe jao
   } catch (error: any) {
+
     // Token expire / tampered / invalid signature
     res.status(401).json({
       success: false,
       error: 'Not authorized. Token failed or expired.'
     });
   }
+};
+
+
+
+// ============================================
+// AUTHORIZE — Role-Based Access Control (RBAC)
+// ============================================
+// Usage: authorize('admin') OR authorize('admin', 'manager')
+export const authorize = (...allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    // Safety check: req.user hona zaroori hai (Protect middleware pehle chalna chahiye)
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Not authorized. Please login first.'
+      });
+      return;
+    }
+
+    // Role Check: Kya user ka role allowedRoles array mein include hai?
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({
+        success: false,
+        error: `User role '${req.user.role}' is forbidden from accessing this resource.`
+      });
+      return;
+    }
+
+    // 3️⃣ Access Granted — Admin hai!
+    next();
+  };
 };
