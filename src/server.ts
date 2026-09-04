@@ -22,6 +22,7 @@ import authRoutes from './routes/auth.routes';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 import { apiLimiter } from './middleware/rateLimiter.middleware';
 import { sanitizeData } from './middleware/sanitize.middleware';
+import cartRoutes from './routes/cart.routes';
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ app.get('/', (req: Request, res: Response) => {
 // Saare product routes ko '/api/products' prefix ke sath mount kar diya
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);  
+app.use('/api/cart', cartRoutes); 
 
 // ============================================
 // 4. ERROR MIDDLEWARES (Always at the end)
