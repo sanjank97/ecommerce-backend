@@ -56,9 +56,10 @@ app.use('/api', apiLimiter);
 
 // ============================================
 // 1. GLOBAL MIDDLEWARES
+// (Note: cors() aur express.json() upar secure config ke saath already applied hain —
+//  yahan duplicate global cors()/express.json() hataye gaye kyunki wo origin
+//  restriction aur 10kb body limit ko override kar rahe the)
 // ============================================
-app.use(cors());
-app.use(express.json());
 
 // ============================================
 // 2. HEALTH CHECK ROUTE

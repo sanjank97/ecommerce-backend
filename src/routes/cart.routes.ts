@@ -8,6 +8,8 @@ import {
   clearCart
 } from '../controllers/cart.controller';
 import { protect } from '../middleware/auth.middleware';
+import { validate } from '../middleware/validate.middleware';
+import { addToCartSchema, removeFromCartSchema } from '../validations/cart.validation';
 
 const router = Router();
 
@@ -16,10 +18,10 @@ router.use(protect);
 
 router.route('/')
   .get(getCart)
-  .post(addToCart)
+  .post(validate(addToCartSchema), addToCart)
   .delete(clearCart);
 
 router.route('/:productId')
-  .delete(removeFromCart);
+  .delete(validate(removeFromCartSchema), removeFromCart);
 
 export default router;

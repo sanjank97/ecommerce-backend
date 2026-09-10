@@ -1,6 +1,7 @@
 // src/controllers/cart.controller.ts
 
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import { CartModel } from '../models/cart.model';
 import { ProductModel } from '../models/product.model';
 
@@ -47,6 +48,7 @@ export const addToCart = async (req: Request, res: Response): Promise<void> => {
     }
 
     const userId = req.user._id;
+    // quantity zod schema me validate + coerce ho chuki hai (positive integer, default 1)
     const { productId, quantity = 1 } = req.body;
 
     if (!productId) {
@@ -54,10 +56,16 @@ export const addToCart = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // 1️⃣ Check if product exists
+    // 1️⃣ Check if product exists (invalid ObjectId format validation se pehle hi reject ho chuka hai)
     const product = await ProductModel.findById(productId);
     if (!product) {
       res.status(404).json({ success: false, error: "Product not found" });
+      return;
+    }
+
+    // ⛔ Guard: price 0 ya negative product cart me add mat karo
+    if (product.price <= 0) {
+      res.status(400).json({ success: false, error: "This product cannot be added to cart" });
       return;
     }
 
@@ -80,7 +88,7 @@ export const addToCart = async (req: Request, res: Response): Promise<void> => {
       }
     } else {
       cart.items.push({
-        product: product._id as any,
+        product: product._id as Types.ObjectId,
         quantity: Number(quantity),
         price: product.price
       });
@@ -116,6 +124,15 @@ export const removeFromCart = async (req: Request, res: Response): Promise<void>
     const cart = await CartModel.findOne({ user: userId });
     if (!cart) {
       res.status(404).json({ success: false, error: "Cart not found" });
+      return;
+    }
+
+    // 🆕 Check: ye item cart me hai bhi ya nahi (pehle silently 200 ja raha tha)
+    const itemExists = cart.items.some(
+      item => item.product.toString() === productId
+    );
+    if (!itemExists) {
+      res.status(404).json({ success: false, error: "Item not found in cart" });
       return;
     }
 
