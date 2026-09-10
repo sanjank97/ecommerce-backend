@@ -24,6 +24,7 @@ const cartItemSchema = new Schema<ICartItem>({
     type: Number,
     required: true,
     min: [1, "Quantity cannot be less than 1"],
+    max: [999, "Quantity cannot be more than 999"],
     default: 1
   },
   price: {

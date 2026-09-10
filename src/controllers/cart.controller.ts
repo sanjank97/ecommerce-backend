@@ -25,7 +25,25 @@ export const getCart = async (req: Request, res: Response): Promise<void> => {
     );
 
     if (!cart) {
-      cart = await CartModel.create({ user: userId, items: [], totalAmount: 0 });
+      // 🏁 RACE-SAFE: Do parallel requests ek saath cart create karne ki koshish
+      // karein to duplicate key (E11000) error aata hai — tab dobara fetch kar lo
+      try {
+        cart = await CartModel.create({ user: userId, items: [], totalAmount: 0 });
+      } catch (err: any) {
+        if (err?.code === 11000) {
+          cart = await CartModel.findOne({ user: userId }).populate(
+            'items.product',
+            'name price image category'
+          );
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (!cart) {
+      res.status(500).json({ success: false, error: "Cart could not be created or fetched" });
+      return;
     }
 
     res.status(200).json({
@@ -84,7 +102,13 @@ export const addToCart = async (req: Request, res: Response): Promise<void> => {
       //Existing item variable mein store karke type check karo
       const existingItem = cart.items[itemIndex];
       if (existingItem) {
-        existingItem.quantity += Number(quantity);
+        const newQuantity = existingItem.quantity + Number(quantity);
+        // ⛔ Upper limit: combined quantity 999 se zyada na ho sake
+        if (newQuantity > 999) {
+          res.status(400).json({ success: false, error: "Maximum quantity limit (999) exceeded for this item" });
+          return;
+        }
+        existingItem.quantity = newQuantity;
       }
     } else {
       cart.items.push({
