@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "e1c2a9f0-ecom-cart-api-2026",
 		"name": "Ecommerce Backend — Cart API",
-		"description": "Cart feature testing collection.\n\nFlow:\n1. Health check karo\n2. Register ya Login karo (token automatically capture ho jayega)\n3. Products list se productId automatically capture hota hai\n4. Cart ke saare endpoints test karo\n\nToken collection variable {{token}} me save hota hai — har request me Bearer token apne aap lag jayega.",
+		"description": "Cart + Orders testing collection.\n\nFlow:\n1. Health check karo\n2. Register ya Login karo (token automatically capture hota hai)\n3. Products list se productId automatically capture hota hai\n4. Cart endpoints test karo\n5. Orders: Checkout (cart se order banao) → history → cancel → admin flows\n\nToken collection variable {{token}} me save hota hai. Admin flows ke liye pehle 'Register Admin'/'Login Admin' chalao.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -29,6 +29,11 @@
 		{
 			"key": "adminPassword",
 			"value": "admin123",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "",
 			"type": "string"
 		}
 	],
@@ -72,10 +77,15 @@
 						}
 					],
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -102,10 +112,15 @@
 						}
 					],
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -133,10 +148,15 @@
 						}
 					],
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -163,10 +183,15 @@
 						}
 					],
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -207,7 +232,9 @@
 						}
 					],
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "GET",
 						"url": "{{baseUrl}}/api/products"
 					}
@@ -217,7 +244,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -243,7 +273,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -257,7 +290,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -271,7 +307,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -285,7 +324,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
-							{ "key": "Content-Type", "value": "application/json" }
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
 						],
 						"body": {
 							"mode": "raw",
@@ -311,9 +353,213 @@
 				{
 					"name": "Cart without Token (401 check ❌)",
 					"request": {
-						"auth": { "type": "noauth" },
+						"auth": {
+							"type": "noauth"
+						},
 						"method": "GET",
 						"url": "{{baseUrl}}/api/cart"
+					}
+				}
+			]
+		},
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "Checkout — Create Order (from cart)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Order created (201)\", () => pm.expect(pm.response.code).to.eql(201));",
+									"const json = pm.response.json();",
+									"if (json && json.data && json.data._id) {",
+									"    pm.collectionVariables.set(\"orderId\", json.data._id);",
+									"    console.log(\"orderId captured ✅ =>\", json.data._id, \"| orderNumber:\", json.data.orderNumber, \"| total:\", json.data.totalAmount);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"shippingAddress\": {\n    \"fullName\": \"Test User\",\n    \"phone\": \"9876543210\",\n    \"street\": \"123 Main Street, Sector 12\",\n    \"city\": \"Panipat\",\n    \"state\": \"Haryana\",\n    \"zipCode\": \"132103\",\n    \"country\": \"India\"\n  },\n  \"paymentMethod\": \"COD\"\n}"
+						},
+						"url": "{{baseUrl}}/api/orders"
+					}
+				},
+				{
+					"name": "Checkout — Empty Cart (400 check ❌)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"shippingAddress\": {\"fullName\": \"Test User\", \"phone\": \"9876543210\", \"street\": \"123 Main Street\", \"city\": \"Panipat\", \"state\": \"Haryana\", \"zipCode\": \"132103\"}}"
+						},
+						"url": "{{baseUrl}}/api/orders"
+					}
+				},
+				{
+					"name": "Checkout — Invalid Address (400 check ❌)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"shippingAddress\": {\"fullName\": \"T\", \"phone\": \"123\", \"street\": \"ab\", \"city\": \"\", \"state\": \"\", \"zipCode\": \"12\"}}"
+						},
+						"url": "{{baseUrl}}/api/orders"
+					}
+				},
+				{
+					"name": "Get My Orders (history)",
+					"request": {
+						"method": "GET",
+						"url": "{{baseUrl}}/api/orders/my-orders?page=1&limit=10"
+					}
+				},
+				{
+					"name": "Get Order By Id",
+					"request": {
+						"method": "GET",
+						"url": "{{baseUrl}}/api/orders/{{orderId}}"
+					}
+				},
+				{
+					"name": "Get Order By Id — No Token (401 check ❌)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"url": "{{baseUrl}}/api/orders/{{orderId}}"
+					}
+				},
+				{
+					"name": "Cancel Order",
+					"request": {
+						"method": "PUT",
+						"url": "{{baseUrl}}/api/orders/{{orderId}}/cancel"
+					}
+				},
+				{
+					"name": "ADMIN: Get All Orders",
+					"request": {
+						"method": "GET",
+						"url": "{{baseUrl}}/api/orders?page=1&limit=10"
+					}
+				},
+				{
+					"name": "ADMIN: Get All Orders (status filter)",
+					"request": {
+						"method": "GET",
+						"url": "{{baseUrl}}/api/orders?status=pending"
+					}
+				},
+				{
+					"name": "ADMIN: Update Order Status (confirmed)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status updated (200)\", () => pm.expect(pm.response.code).to.eql(200));",
+									"const json = pm.response.json();",
+									"if (json && json.data) console.log(\"orderStatus:\", json.data.orderStatus, \"| paymentStatus:\", json.data.paymentStatus);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"orderStatus\": \"confirmed\"}"
+						},
+						"url": "{{baseUrl}}/api/orders/{{orderId}}/status"
+					}
+				},
+				{
+					"name": "ADMIN: Update Order Status → shipped",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"orderStatus\": \"shipped\"}"
+						},
+						"url": "{{baseUrl}}/api/orders/{{orderId}}/status"
+					}
+				},
+				{
+					"name": "ADMIN: Update Order Status → delivered (COD ⇒ paid)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const json = pm.response.json();",
+									"if (json && json.data) {",
+									"    pm.test(\"COD delivered ⇒ paymentStatus paid\", () => pm.expect(json.data.paymentStatus).to.eql(\"paid\"));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"orderStatus\": \"delivered\"}"
+						},
+						"url": "{{baseUrl}}/api/orders/{{orderId}}/status"
+					}
+				},
+				{
+					"name": "Cancel Delivered Order (400 check ❌)",
+					"request": {
+						"method": "PUT",
+						"url": "{{baseUrl}}/api/orders/{{orderId}}/cancel"
 					}
 				}
 			]

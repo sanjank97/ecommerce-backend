@@ -147,6 +147,128 @@ async function main() {
   const clear = await api('DELETE', '/api/cart', { token: userToken });
   log('DELETE /api/cart → cart cleared', clear.status === 200 && (clear.json?.data?.items?.length ?? 1) === 0 && clear.json?.data?.totalAmount === 0);
 
+  // ============================================
+  // 📦 ORDER CREATION & CHECKOUT ENGINE TESTS
+  // ============================================
+
+  // 11. Cart me item wapas add karo (checkout ke liye)
+  const reAdd = await api('POST', '/api/cart', { token: userToken, body: { productId: p1._id, quantity: 2 } });
+  log('Re-add product1 qty2 (checkout prep)', reAdd.status === 200 && reAdd.json?.data?.totalAmount === 2 * priceOf(p1._id));
+
+  // 12. Checkout validation — invalid address → 400
+  const badAddr = await api('POST', '/api/orders', {
+    token: userToken,
+    body: { shippingAddress: { fullName: 'T', phone: '123', street: 'ab', city: '', state: '', zipCode: '12' } }
+  });
+  log('POST /api/orders invalid address → 400', badAddr.status === 400);
+
+  // 13. Checkout — valid order create
+  const checkout = await api('POST', '/api/orders', {
+    token: userToken,
+    body: {
+      shippingAddress: { fullName: 'Test User', phone: '9876543210', street: '123 Main Street, Sector 12', city: 'Panipat', state: 'Haryana', zipCode: '132103', country: 'India' },
+      paymentMethod: 'COD'
+    }
+  });
+  const order = checkout.json?.data;
+  log(
+    'POST /api/orders checkout → 201, total correct, orderNumber mila',
+    checkout.status === 201 && order?.totalAmount === 2 * priceOf(p1._id) && typeof order?.orderNumber === 'string' && order?.orderNumber.startsWith('ORD-'),
+    `orderNumber: ${order?.orderNumber}, total: ${order?.totalAmount} (expected ${2 * priceOf(p1._id)})`
+  );
+  const orderId = order?._id;
+
+  // 14. Snapshot check — order items me name/price capture hue
+  log('Order items me name+price snapshot hai', typeof order?.items?.[0]?.name === 'string' && order?.items?.[0]?.price === priceOf(p1._id));
+
+  // 15. Checkout ke baad cart empty ho gaya
+  const cartAfter = await api('GET', '/api/cart', { token: userToken });
+  log('Checkout ke baad cart cleared', cartAfter.status === 200 && (cartAfter.json?.data?.items?.length ?? 1) === 0 && cartAfter.json?.data?.totalAmount === 0);
+
+  // 16. Empty cart se dobara checkout → 400
+  const emptyCheckout = await api('POST', '/api/orders', {
+    token: userToken,
+    body: { shippingAddress: { fullName: 'Test User', phone: '9876543210', street: '123 Main Street, Sector 12', city: 'Panipat', state: 'Haryana', zipCode: '132103' } }
+  });
+  log('Empty cart checkout → 400', emptyCheckout.status === 400);
+
+  // 17. Order history
+  const myOrders = await api('GET', '/api/orders/my-orders', { token: userToken });
+  log(
+    'GET /api/orders/my-orders → 1 order (newest first)',
+    myOrders.status === 200 && myOrders.json?.data?.length === 1 && myOrders.json?.data?.[0]?._id === orderId && myOrders.json?.pagination?.totalOrders === 1
+  );
+
+  // 18. Order by id (owner)
+  const myOrder = await api('GET', `/api/orders/${orderId}`, { token: userToken });
+  log('GET /api/orders/:id (owner) → 200', myOrder.status === 200 && myOrder.json?.data?._id === orderId);
+
+  // 19. Order by id — dusra user → 403
+  const stamp2 = Date.now() + 1;
+  const user2Reg = await api('POST', '/api/auth/register', {
+    body: { name: 'Cart Test User 2', email: `cartuser_${stamp2}@test.com`, password: 'test123' }
+  });
+  const user2Token = user2Reg.json?.data?.token;
+  const forbidden = await api('GET', `/api/orders/${orderId}`, { token: user2Token });
+  log('GET dusre user ka order → 403', forbidden.status === 403);
+
+  // 20. Admin dusre user ka order dekh sakta hai → 200
+  const adminView = await api('GET', `/api/orders/${orderId}`, { token: adminToken });
+  log('GET order as admin → 200 (admin override)', adminView.status === 200 && adminView.json?.data?._id === orderId);
+
+  // 21. User cancel kare
+  const cancel = await api('PUT', `/api/orders/${orderId}/cancel`, { token: userToken });
+  log('PUT /api/orders/:id/cancel → 200, status cancelled', cancel.status === 200 && cancel.json?.data?.orderStatus === 'cancelled');
+
+  // 22. Dobara cancel → 400
+  const cancelAgain = await api('PUT', `/api/orders/${orderId}/cancel`, { token: userToken });
+  log('Cancel already-cancelled order → 400', cancelAgain.status === 400);
+
+  // 23. Cancelled order ki admin status change → 400
+  const statusOnCancelled = await api('PUT', `/api/orders/${orderId}/status`, { token: adminToken, body: { orderStatus: 'confirmed' } });
+  log('Admin: cancelled order status change → 400', statusOnCancelled.status === 400);
+
+  // 24. User2 ka full lifecycle: add → checkout → admin status flow
+  await api('POST', '/api/cart', { token: user2Token, body: { productId: p2._id, quantity: 1 } });
+  const checkout2 = await api('POST', '/api/orders', {
+    token: user2Token,
+    body: { shippingAddress: { fullName: 'User Two', phone: '9999999999', street: '456 Second Street', city: 'Karnal', state: 'Haryana', zipCode: '132001' }, paymentMethod: 'COD' }
+  });
+  const orderId2 = checkout2.json?.data?._id;
+  log('User2 checkout → 201', checkout2.status === 201 && checkout2.json?.data?.totalAmount === priceOf(p2._id));
+
+  const st1 = await api('PUT', `/api/orders/${orderId2}/status`, { token: adminToken, body: { orderStatus: 'confirmed' } });
+  const st2 = await api('PUT', `/api/orders/${orderId2}/status`, { token: adminToken, body: { orderStatus: 'shipped' } });
+  const st3 = await api('PUT', `/api/orders/${orderId2}/status`, { token: adminToken, body: { orderStatus: 'delivered' } });
+  log(
+    'Admin lifecycle: pending→confirmed→shipped→delivered (COD ⇒ paid)',
+    st1.status === 200 && st2.status === 200 && st3.status === 200 && st3.json?.data?.paymentStatus === 'paid'
+  );
+
+  // 25. Delivered order cancel → 400
+  const cancelDelivered = await api('PUT', `/api/orders/${orderId2}/cancel`, { token: user2Token });
+  log('Delivered order cancel → 400', cancelDelivered.status === 400);
+
+  // 26. Delivered final — status change → 400
+  const statusOnDelivered = await api('PUT', `/api/orders/${orderId2}/status`, { token: adminToken, body: { orderStatus: 'pending' } });
+  log('Delivered order status change → 400', statusOnDelivered.status === 400);
+
+  // 27. Admin: all orders list
+  const allOrders = await api('GET', '/api/orders', { token: adminToken });
+  log('GET /api/orders as admin → 200 (2+ orders)', allOrders.status === 200 && (allOrders.json?.pagination?.totalOrders ?? 0) >= 2);
+
+  // 28. Admin: status filter
+  const filtered = await api('GET', '/api/orders?status=delivered', { token: adminToken });
+  log('GET /api/orders?status=delivered → filter works', filtered.status === 200 && filtered.json?.data?.every?.((o) => o.orderStatus === 'delivered') === true);
+
+  // 29. Normal user ko admin route access → 403
+  const userAllOrders = await api('GET', '/api/orders', { token: userToken });
+  log('GET /api/orders as normal user → 403', userAllOrders.status === 403);
+
+  // 30. Invalid order id format → 400
+  const badOrderId = await api('GET', '/api/orders/not-an-object-id', { token: userToken });
+  log('GET /api/orders/invalid-id → 400', badOrderId.status === 400);
+
   // Summary
   console.log(`\n${'='.repeat(50)}`);
   console.log(`📊 Results: ${passed} passed, ${failed} failed\n`);

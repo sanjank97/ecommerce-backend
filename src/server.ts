@@ -23,6 +23,7 @@ import { notFoundHandler, errorHandler } from './middleware/error.middleware';
 import { apiLimiter } from './middleware/rateLimiter.middleware';
 import { sanitizeData } from './middleware/sanitize.middleware';
 import cartRoutes from './routes/cart.routes';
+import orderRoutes from './routes/order.routes';
 
 dotenv.config();
 
@@ -75,6 +76,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);  
 app.use('/api/cart', cartRoutes); 
+app.use('/api/orders', orderRoutes);
 
 // ============================================
 // 4. ERROR MIDDLEWARES (Always at the end)
