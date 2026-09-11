@@ -24,6 +24,7 @@ import { apiLimiter } from './middleware/rateLimiter.middleware';
 import { sanitizeData } from './middleware/sanitize.middleware';
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
+import uploadRoutes from './routes/upload.routes';
 
 dotenv.config();
 
@@ -77,6 +78,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);  
 app.use('/api/cart', cartRoutes); 
 app.use('/api/orders', orderRoutes);
+app.use('/api/uploads', uploadRoutes); // 📁 File/Image uploads (Multer + Cloudinary)
 
 // ============================================
 // 4. ERROR MIDDLEWARES (Always at the end)

@@ -26,7 +26,9 @@ export const errorHandler = (
     return;
   }
 
-  const statusCode = err.statusCode || 500;
+  // err.statusCode → humare ApiError / Multer errors se aata hai
+  // err.status      → Express body-parser errors se aata hai (jaise 413 payload too large)
+  const statusCode = err.statusCode || err.status || 500;
   res.status(statusCode).json({
     success: false,
     error: err.message || "Internal Server Error",

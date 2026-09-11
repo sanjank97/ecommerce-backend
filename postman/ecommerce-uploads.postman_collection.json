@@ -1,0 +1,324 @@
+{
+  "info": {
+    "_postman_id": "a7b3c9d2-ecom-uploads-api-2026",
+    "name": "Ecommerce Backend — File/Image Uploads API",
+    "description": "Multer + Cloudinary upload endpoints ka testing collection.\n\nFlow:\n1. Pehle 'Register Admin' ya 'Login Admin' chalao (token automatically capture ho jaata hai)\n2. Upload endpoints test karo — file select karna mat bhoolna form-data me!\n3. Upload response me `publicId` milta hai — wo {{publicId}} variable me save ho jaata hai (Delete test ke liye)\n4. Product create/update bhi ab multipart/form-data support karta hai (\"images\" field)\n\n⚠️ Note: .env me CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET set hona chahiye, warna 503 error aayega.\n\nLimits:\n- Images: sirf jpeg/jpg/png/webp/gif/avif, max 5MB each\n- Product images: max 5 files per request (field name: \"images\")\n- Files (pdf/doc/zip/txt/csv/json): max 10MB (field name: \"file\")",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "adminEmail", "value": "admin@test.com", "type": "string" },
+    { "key": "adminPassword", "value": "admin123", "type": "string" },
+    { "key": "productId", "value": "", "type": "string" },
+    { "key": "publicId", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "url": "{{baseUrl}}/"
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"token\", json.data.token);",
+                  "    console.log(\"Admin token captured ✅\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Admin\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"token\", json.data.token);",
+                  "    console.log(\"Admin token captured ✅\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload Single Image (field: image)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data.publicId) {",
+                  "    pm.collectionVariables.set(\"publicId\", json.data.publicId);",
+                  "    console.log(\"publicId captured ✅\");",
+                  "}",
+                  "pm.test(\"Upload successful\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select an image file (jpeg/png/webp/gif/avif, max 5MB)"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/uploads/image",
+            "description": "Single image upload karo. Response me `url` (Cloudinary URL) aur `publicId` milega."
+          }
+        },
+        {
+          "name": "Upload Product Images — batch (field: images)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data[0] && json.data[0].publicId) {",
+                  "    pm.collectionVariables.set(\"publicId\", json.data[0].publicId);",
+                  "}",
+                  "pm.test(\"Batch upload successful\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": [],
+                  "description": "Image 1 select karo"
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": [],
+                  "description": "Image 2 (same field name \"images\" repeat hota hai, max 5)"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/uploads/product-images",
+            "description": "Multiple product images ek request me (max 5). Field name MUST \"images\" ho."
+          }
+        },
+        {
+          "name": "Upload File — pdf/doc/zip (field: file)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "pdf/doc/docx/xls/xlsx/ppt/pptx/zip/txt/csv/json — max 10MB"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/uploads/file"
+          }
+        },
+        {
+          "name": "Delete Uploaded Asset",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicId\": \"{{publicId}}\",\n  \"resourceType\": \"image\"\n}"
+            },
+            "url": "{{baseUrl}}/api/uploads/destroy",
+            "description": "Cloudinary asset delete karo publicId se. Sirf \"ecommerce/\" folder ke andar wali files delete ho sakti hain."
+          }
+        },
+        {
+          "name": "Upload without Token (401 check ❌)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "image", "type": "file", "src": [] }]
+            },
+            "url": "{{baseUrl}}/api/uploads/image"
+          }
+        },
+        {
+          "name": "Upload Wrong File Type (400 check ❌)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "Koi non-image file select karo (.txt ya .pdf) — 400 aana chahiye"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/uploads/image"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products (multipart)",
+      "item": [
+        {
+          "name": "Create Product with Images (multipart)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.data && json.data._id) {",
+                  "    pm.collectionVariables.set(\"productId\", json.data._id);",
+                  "    console.log(\"productId captured ✅\");",
+                  "}",
+                  "pm.test(\"Product created (201)\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Wireless Headphones", "type": "text" },
+                { "key": "price", "value": "2999", "type": "text", "description": "String me bhi bhej sakte ho — auto number me convert hota hai" },
+                { "key": "category", "value": "electronics", "type": "text" },
+                { "key": "description", "value": "Best noise cancelling headphones", "type": "text" },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": [],
+                  "description": "Main product image (pehli image = main image)"
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": [],
+                  "description": "Gallery image 2 (optional, max 5)"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/products",
+            "description": "Product create karo + images ek hi request me upload karo. Files Cloudinary pe jaati hain aur URL DB me save hota hai.\n\nNote: JSON body se bhi product create ho sakta hai (image as URL string) — purana flow bilkul same chalta hai."
+          }
+        },
+        {
+          "name": "Update Product — Image Only (multipart)",
+          "request": {
+            "method": "PUT",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": [],
+                  "description": "Nayi image — purani Cloudinary se auto-delete ho jaayegi"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/products/{{productId}}",
+            "description": "Sirf image replace karni ho (bina text fields ke) — ye bhi kaam karta hai! Purani image Cloudinary se automatically delete ho jaati hai (orphan files nahi jama hoti)."
+          }
+        },
+        {
+          "name": "Update Product — JSON (backward compat)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 1999\n}"
+            },
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

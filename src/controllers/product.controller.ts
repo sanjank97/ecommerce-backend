@@ -1,5 +1,16 @@
 import { Request, Response } from 'express';
-import { ProductModel } from '../models/product.model';
+import { ProductModel, IProductImage } from '../models/product.model';
+import {
+  uploadManyToCloudinary,
+  deleteFromCloudinarySafe
+} from '../services/cloudinary.service';
+import { CLOUDINARY_ROOT_FOLDER } from '../config/cloudinary';
+
+// Helper: req.files se "images" field wali files nikalne ka type-safe tareeka
+const getProductFiles = (req: Request): Express.Multer.File[] => {
+  const files = req.files as { images?: Express.Multer.File[] } | undefined;
+  return files?.images ?? [];
+};
 
 // @desc    Get all products (Search, Filter, Sort, Pagination)
 // @route   GET /api/products
@@ -91,17 +102,48 @@ export const getProductById = async (req: Request, res: Response): Promise<void>
 
 // @desc    Create a new product
 // @route   POST /api/products
+// Body:    JSON (image as URL) YA multipart/form-data (files in "images" field, max 5)
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     // 💡 NO MANUAL IF/ELSE CHECKS NEEDED! Zod has already validated req.body!
     const { name, price, category, image, description } = req.body;
+    const files = getProductFiles(req);
+
+    // Default image data (agar files nahi aayi toh URL string ya default use hoga)
+    let imageData: { image: string; imagePublicId: string; images: IProductImage[] } = {
+      image: image || "default.jpg",
+      imagePublicId: "",
+      images: []
+    };
+
+    // 🖼️ Agar multipart/form-data me images aayi hain → Cloudinary pe upload karo
+    // (Upload VALIDATION ke baad ho raha hai — invalid product data pe cloud
+    //  pe koi orphan file nahi jayegi)
+    if (files.length > 0) {
+      const uploaded = await uploadManyToCloudinary(
+        files.map((f) => f.buffer),
+        `${CLOUDINARY_ROOT_FOLDER}/products`,
+        'image'
+      );
+
+      // Destructuring se pehli image mil jaati hai (files.length > 0 guaranteed)
+      const [mainImage] = uploaded;
+
+      if (mainImage) {
+        imageData = {
+          image: mainImage.url,             // Pehli image = main product image
+          imagePublicId: mainImage.publicId, // Delete/replace ke liye save
+          images: uploaded.map((u) => ({ url: u.url, publicId: u.publicId })) // Poori gallery
+        };
+      }
+    }
 
     const product = await ProductModel.create({
       name: name.trim(),
       price,
       category: category.toLowerCase().trim(),
-      image: image || "default.jpg",
-      description: description || ""
+      description: description || "",
+      ...imageData
     });
 
     res.status(201).json({
@@ -110,24 +152,78 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       data: product
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 };
 
 // @desc    Update product by ID
 // @route   PUT /api/products/:id
+// Body:    JSON (fields + image URL) YA multipart/form-data (naye "images" files)
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
     // 💡 NO MANUAL IF/ELSE CHECKS NEEDED!
+    const { name, price, category, image, description } = req.body;
+    const files = getProductFiles(req);
+
+    // Purana product pehle fetch karo — 404 check + purani Cloudinary
+    // image cleanup ke liye (findByIdAndUpdate old values nahi deta)
+    const existing = await ProductModel.findById(req.params.id);
+
+    if (!existing) {
+      res.status(404).json({ success: false, error: "Product not found" });
+      return;
+    }
+
+    // 🔒 EXPLICIT FIELD PICKING (mass-assignment protection) —
+    // req.body ka koi bhi random field (jaise role/createdAt) DB tak nahi jaayega
+    const updateData: Record<string, unknown> = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (price !== undefined) updateData.price = price;
+    if (category !== undefined) updateData.category = category.toLowerCase().trim();
+    if (description !== undefined) updateData.description = description;
+    // Note: image = "" wala empty-sentinel (sirf-files request) yahan ignore hota hai
+    if (image) updateData.image = image;
+
+    // 🖼️ Naye images upload (validation ke baad — no orphan cloud files)
+    if (files.length > 0) {
+      const uploaded = await uploadManyToCloudinary(
+        files.map((f) => f.buffer),
+        `${CLOUDINARY_ROOT_FOLDER}/products`,
+        'image'
+      );
+
+      const [mainImage] = uploaded; // pehli image = nayi main image
+
+      if (mainImage) {
+        updateData.image = mainImage.url;
+        updateData.imagePublicId = mainImage.publicId;
+        updateData.images = uploaded.map((u) => ({ url: u.url, publicId: u.publicId }));
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({
+        success: false,
+        error: "Nothing to update. Provide at least one field or upload images."
+      });
+      return;
+    }
+
     const product = await ProductModel.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 
     if (!product) {
       res.status(404).json({ success: false, error: "Product not found" });
       return;
+    }
+
+    // 🧹 PURANI image Cloudinary se delete karo (best-effort — agar ye fail
+    // ho jaaye toh bhi update successful rahega, sirf warning log hogi)
+    if (files.length > 0 && existing.imagePublicId) {
+      await deleteFromCloudinarySafe(existing.imagePublicId);
     }
 
     res.status(200).json({
@@ -140,7 +236,7 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       res.status(400).json({ success: false, error: "Invalid product ID format" });
       return;
     }
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 };
 
@@ -155,6 +251,19 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // 🧹 Product ki SAARI Cloudinary images delete karo (best-effort) —
+    // warna cloud pe orphan files jama hoti rehti hain (free storage khatam!)
+    // Set use kiya hai taaki main image + gallery me duplicate na ho
+    const publicIds = new Set<string>();
+    if (product.imagePublicId) publicIds.add(product.imagePublicId);
+    product.images?.forEach((img) => {
+      if (img.publicId) publicIds.add(img.publicId);
+    });
+
+    if (publicIds.size > 0) {
+      await Promise.all([...publicIds].map((publicId) => deleteFromCloudinarySafe(publicId)));
+    }
+
     res.status(200).json({
       success: true,
       message: "Product deleted successfully! 🗑️",
@@ -165,6 +274,6 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
       res.status(400).json({ success: false, error: "Invalid product ID format" });
       return;
     }
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 };
