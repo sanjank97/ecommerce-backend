@@ -25,8 +25,13 @@ import { sanitizeData } from './middleware/sanitize.middleware';
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
 import uploadRoutes from './routes/upload.routes';
+import { logCloudinaryStatus } from './config/cloudinary';
 
 dotenv.config();
+
+// Cloudinary status — dotenv ke BAAD call karna zaroori hai
+// (env values ab tak loaded ho chuki hain — accurate status milega)
+logCloudinaryStatus();
 
 connectDB();
 

@@ -12,7 +12,7 @@
 
 import { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
 import { v2 as cloudinary } from 'cloudinary';
-import { isCloudinaryConfigured } from '../config/cloudinary';
+import { ensureCloudinaryConfig } from '../config/cloudinary';
 import { ApiError } from '../utils/ApiError';
 
 // Ek uploaded file ki structured info (jo API response me jaayegi)
@@ -38,7 +38,8 @@ export const uploadToCloudinary = (
 ): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
     // Credentials missing? — turant clear error do (server crash nahi)
-    if (!isCloudinaryConfigured()) {
+    // (ensureCloudinaryConfig LAZY configure karta hai — dotenv ke baad sahi values)
+    if (!ensureCloudinaryConfig()) {
       return reject(
         new ApiError(
           503,
@@ -124,7 +125,7 @@ export const deleteFromCloudinary = async (
   publicId: string,
   resourceType: 'image' | 'raw' | 'video' = 'image'
 ): Promise<string> => {
-  if (!isCloudinaryConfigured()) {
+  if (!ensureCloudinaryConfig()) {
     throw new ApiError(
       503,
       'Cloudinary is not configured. Add CLOUDINARY_* variables to your .env file.'
